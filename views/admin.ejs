@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Blog</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
+</head>
+
+<body>
+  <div class="container">
+    <table class="table align-middle">
+    <tbody class="table-group-divider">
+      <tr> 
+        <th scope="row" > <h1>Personal Blog</h1> </th>
+        <td> 
+            <form action="/new" method="GET">
+              <input type="submit" class="btn btn-primary" name="addArticle" value="+Add">
+            </form>
+        </td>
+        <td> 
+            <form action="/logout" method="GET">
+              <input type="submit" class="btn btn-secondary" name="logout" value="logout">
+            </form>
+        </td>
+      </tr>
+
+    <% if(locals.articles){ %>
+        <% locals.articles.forEach((article)=> { %>
+
+          <tr > 
+            <th scope="row"><a href="/article/<%= article.id %>"><%= article.title %></a></th>
+            <td> 
+              <form action="/edit/<%= article.id %>" method="POST">
+                <input type="submit" class="btn btn-primary" value="Edit" name="action"> 
+              </form>
+            </td>
+            <td> 
+              <form action="/modified" method="POST">
+                <input type="hidden" value="<%= article.id %>" name="deleteArticleId">
+                <input type="submit" class="btn btn-danger" value="Delete" name="action"> 
+              </form>
+            </td>
+          </tr>
+
+
+        <% }); %>
+    <% } %>
+        
+          </tbody>
+  </table>
+        
+  </div>
+
+</body>
+
+</html>

@@ -1,0 +1,26 @@
+{
+  "name": "personal_blog",
+  "version": "1.0.0",
+  "description": "This repository is a implementation of roadmap.sh backend project (https://roadmap.sh/projects/personal-blog).",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cyrus2012/personal_blog.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/cyrus2012/personal_blog/issues"
+  },
+  "homepage": "https://github.com/cyrus2012/personal_blog#readme",
+  "dependencies": {
+    "body-parser": "^2.2.1",
+    "ejs": "^3.1.10",
+    "express": "^5.1.0",
+    "express-session": "^1.18.2"
+  }
+}

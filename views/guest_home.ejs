@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Blog</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
+</head>
+
+<body>
+
+  <div class="container">
+    <div class = "row">
+      <div class="col">
+        <h1>Personal Blog</h1>
+      </div>
+    </div>
+      <% if(locals.articles){ %>
+        <% locals.articles.forEach((article, index)=> { %>
+            <div class="row border border-1 border-dark rounded mb-2 p-2 ">
+              <div class="col-sm-8 align-self-center">
+                <a href="/article/<%= article.id %>"><%= article.title %></a>
+              </div>
+              <div class="col-sm-4 align-self-center">
+                <%= article.date.toLocaleDateString(undefined, {month: "long", day: "numeric", year: "numeric",}) %>
+              </div>
+            </div>
+        <% }); %>
+      <% } %>
+    
+  </div>
+
+</body>
+
+</html>
