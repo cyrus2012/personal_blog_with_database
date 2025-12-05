@@ -2,6 +2,9 @@ import express from "express";
 import bodyParser from "body-parser";
 import fs from "fs";
 import session from "express-session";
+import bcrypt from "bcrypt";
+
+
 
 const app = express();
 const PORT = 4000;
@@ -20,27 +23,18 @@ app.use(session({
 
 
 // The User account information is stored here for simplicity of demonstration. It should be stored in a database.
-const users = [
-  { id: 1, username: 'user1', password: 'password1' }
-];
+const users = new Array();
 
 
 let articleSequenceNumber = 1;
 
 const ARTICLE_DIRECTORY = "./articles";
 const SEQUENCE_FILE = "sequenceNumber.json";
+const saltRounds = 10;  //add salt to bcrypt
 
 let articlesArray = new Array();
 let isArticlesSorted = false;
-/*
-let articlesArray = [
-  {title:"hello", date:new Date(2025, 10, 13, 3, 24, 0), content:"This is 1st test article"},
-  {title:"world", date:new Date(2025, 10, 17, 10, 2, 0), content:"This is 2nd test article"},
-  {title:"hand", date:new Date(2025, 11, 1, 1, 40, 0), content:"This is 3rd test article"},
-  {title:"make", date:new Date(2025, 11, 3, 5, 17, 0), content:"This is 4th test article"},
-  {title:"figure", date:new Date(2026, 2, 3, 5, 17, 0), content:"This is 5th test article"},
-];
-*/
+
 
 function readSequenceFile(){
   const fileName = `./${SEQUENCE_FILE}`;
@@ -268,20 +262,102 @@ app.get("/logout", (req, res)=>{
 app.post("/login", (req, res)=>{
     const username = req.body.username;
     const password = req.body.password;
+      
+    const loginUser = users.find((user) => user.username === username);
 
-    const loginUser = users.find((user) => user.username === username && user.password === password);
-    if(!loginUser){
-      return res.render("login.ejs", {incorrect:true});
+    if(loginUser){
+
+      bcrypt.compare(password, loginUser.password, (err, valid) => {
+        if (err) {
+          console.error("Error comparing passwords:", err);
+          return res.render("login.ejs", {message:"Error: fail to comparing passwords"});    
+
+        } else {
+          if (valid) {
+            req.session.user = {
+              id: loginUser.id,
+              username: loginUser.username
+            };
+
+            return res.redirect("/admin");
+          
+          } else {
+            console.log("incorrect password.");
+            console.log("user enter password: " + password);
+            return res.render("login.ejs", {message:"incorrect username or password."});    
+          }
+        }
+      });
+
+    }else{
+
+      console.log("User not found");
+      return res.render("login.ejs", {message:"incorrect username or password."});
     }
 
-    // Store user information in session (excluding password)
-    req.session.user = {
-      id: loginUser.id,
-      username: loginUser.username
-    };
+});
 
-    res.redirect("/admin");
 
+
+function isUsernameExisted(username){
+  const user = users.find((user) => user.username === username);
+
+  if(user){
+    return true;
+  }
+
+  return false;
+}
+
+
+function addUser(name, password){
+  if(isUsernameExisted(name)){
+    console.log("Username has been regitsered")
+    return ;
+  }
+
+  bcrypt.hash(password, saltRounds,  (err, hash) => {
+      if (err) {
+        console.error("Error hashing password:", err);
+
+      } else {
+
+        users.push({id:1, username:name, password:hash});
+        console.log("has regitsered. Now log in account");
+        console.log(`${name} password: ${hash}`);
+      }
+  });
+
+}
+
+
+//addUser("user1", "aabbccdd");
+
+app.post("/register", (req, res)=>{
+  const username = req.body.username;
+  const password = req.body.password;
+
+ if(isUsernameExisted(username)){
+    console.log("Username has been regitsered")
+    res.render("register.ejs", {message:`username ${username} has been used. Pleaes user another!`});
+    return;
+ }
+
+  bcrypt.hash(password, saltRounds,  (err, hash) => {
+      if (err) {
+        console.error("Error hashing password:", err);
+      } else {
+          users.push({id:1, username:username, password:hash});
+          console.log("has regitsered. Now log in account");
+          //console.log(users);
+          res.redirect("/login");
+      }
+  });
+
+});
+
+app.get("/register", (req, res)=>{
+  res.render("register.ejs");
 });
 
 //Route to render login page
