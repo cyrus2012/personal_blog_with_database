@@ -32,7 +32,7 @@
           <tr > 
             <th scope="row"><a href="/article/<%= article.id %>"><%= article.title %></a></th>
             <td> 
-              <form action="/edit/<%= article.id %>" method="POST">
+              <form action="/edit/<%= article.id %>" method="GET">
                 <input type="submit" class="btn btn-primary" value="Edit" name="action"> 
               </form>
             </td>

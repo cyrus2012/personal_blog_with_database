@@ -46,8 +46,9 @@ const blogDatabase = new pg.Client({
     database: 'blog',
 });
 
-blogDatabase.connect();
+await blogDatabase.connect();
 
+fetchArticle();
 
 function readSequenceFile(){
   const fileName = `./${SEQUENCE_FILE}`;
@@ -85,6 +86,17 @@ function writeArticleIntoFile(article) {
   incrementSequenceNumber();
 }
 
+async function insertArticle(article){
+  try{
+    const result = await blogDatabase.query("INSERT INTO articles (title, content, date, owner_id) VALUES ($1, $2, $3, $4) RETURNING id", 
+      [article.title, article.content, article.date, article.owner_id]
+    );
+
+  }catch(err){
+    console.error("blog database has insert problem", err);
+  }
+}
+
 //overwrite the content of the original file.
 function updateArticleFile(article){
     const fileName = `${ARTICLE_DIRECTORY}/${article.id}.json`;
@@ -92,6 +104,18 @@ function updateArticleFile(article){
       if(err)
         console.error("fail to write article file", err);
     });
+}
+
+
+async function updateArticle(article){
+  try{
+    const result = blogDatabase.query(
+      "UPDATE articles SET title=$1, content=$2, date=$3 WHERE id=$4",
+      [article.title, article.content, article.date, article.id]
+    )
+  }catch(err){
+    console.error("fail to update blog database", err);
+  }
 }
 
 
@@ -113,6 +137,23 @@ function readArticleFiles(){
 
 }
 
+async function fetchArticle(owner_id){
+
+  let result;
+
+  try{
+    if(owner_id){
+      result = await blogDatabase.query("SELECT * FROM articles WHERE owner_id=$1", [owner_id]);
+    }else{
+      result = await blogDatabase.query("SELECT * FROM articles");
+    }
+
+    articlesArray = result.rows;
+
+  }catch(err){
+    console.log("fail to access blog database", err);
+  }
+}
 
 function deleteArticleFile(articleId){
 
@@ -122,6 +163,14 @@ function deleteArticleFile(articleId){
     }
       
   });
+}
+
+async function deleteArticle(acticleId){
+  try{
+    const result = blogDatabase.query("DELETE FROM articles WHERE id=$1", [acticleId]);
+  }catch(err){
+    console.error("Problem occurs when delete a row in table articles", err);
+  }
 }
 
 /**
@@ -156,13 +205,13 @@ function convertToStringFormatForDateInputTag(date){
     return dateString;
 }
 
-readSequenceFile();
-readArticleFiles();
+//readSequenceFile();
+//readArticleFiles();
 
 
 // Route to render the edit page
 // This page can only been accessed after login
-app.post('/edit/:articleID', (req, res) =>{
+app.get('/edit/:articleID', (req, res) =>{
 
   if(!req.session.user){
     return res.redirect("/login");
@@ -171,13 +220,16 @@ app.post('/edit/:articleID', (req, res) =>{
   const id = req.params.articleID;
   //check if articleID is digit number
   if(id.match(/\d+/)){ 
-    if(id < articleSequenceNumber && id > 0){
       const articleElement = articlesArray.find((article)=> article.id == id);
-      const dateString = convertToStringFormatForDateInputTag(articleElement.date);
-      res.render("edit_article.ejs", {article:articleElement, date:dateString});
-    }else
-      res.send('404');
+      if(articleElement){
+        const dateString = convertToStringFormatForDateInputTag(articleElement.date);
+        return res.render("edit_article.ejs", {article:articleElement, date:dateString});
+      }else{
+        console.error(`Article with id S{id} does not exit.`);
+        res.send('404');    
+      }
   }else{
+    console.log("URL:./article/XXX where XXX should be a positive number");
     res.send('404');
   }
   
@@ -185,42 +237,48 @@ app.post('/edit/:articleID', (req, res) =>{
 
 
 // Route to create new article, update or delete an existing article. Then redirect to /admin page
-app.post("/modified", (req, res)=>{
+app.post("/modified", async (req, res)=>{
   
   if(!req.session.user){
       return res.redirect("/login");
   }
 
+  const user_id = req.session.user.id;
   //console.log("post /admin with action " + req.body.action);
   
+
   //delete an article
   if(req.body.action === "Delete"){
+    await deleteArticle(req.body.deleteArticleId);
+    /*
     const index = articlesArray.findIndex((article) => article.id == req.body.deleteArticleId);
     deleteArticleFile(req.body.deleteArticleId);
     articlesArray.splice(index, 1);
     console.log(`deleted article ${req.body.deleteArticleId}!`);
-
+    */
   //publish a new article
   }else if(req.body.action === "Publish"){
     console.log("publish new article");
     const dateObj = createDateFromDateInput(req.body.date);
-    const newArticle = {id: articleSequenceNumber,title:req.body.title, date:dateObj, content:req.body.content};
-    writeArticleIntoFile(newArticle);
-    articlesArray.splice(0, 0, newArticle);
-    isArticlesSorted = false;
+    const newArticle = {owner_id: user_id,title:req.body.title, date:dateObj, content:req.body.content};
+    await insertArticle(newArticle);
+    //writeArticleIntoFile(newArticle);
+    //articlesArray.splice(0, 0, newArticle);
+    //isArticlesSorted = false;
 
   //update the article
   }else if(req.body.action === "Update"){
-    const id = req.body.articleId;
-    if(id < articleSequenceNumber && id > 0){
-      const articleElement = articlesArray.find((article)=> article.id == id);
-      const dateObj = createDateFromDateInput(req.body.date);
-      articleElement.title = req.body.title;
-      articleElement.date = dateObj;
-      articleElement.content = req.body.content;
-      updateArticleFile(articleElement);
-      isArticlesSorted = false;
-    }
+
+    const dateObj = createDateFromDateInput(req.body.date);
+    const newArticle = {
+      owner_id: user_id,
+      title:req.body.title, 
+      date:dateObj, 
+      content:req.body.content,
+      id:req.body.articleId
+    };
+
+    await updateArticle(newArticle);
   }
     
   res.redirect("/admin");
@@ -236,7 +294,7 @@ app.get("/new", (req, res) =>{
   if(!req.session.user){
     return res.redirect("/login");
   }
- 
+
   const date = new Date();
   const dateString = convertToStringFormatForDateInputTag(date);
   res.render("edit_article.ejs", {date:dateString});
@@ -244,24 +302,22 @@ app.get("/new", (req, res) =>{
 
 // Route to render admin page
 // This page can only been accessed after login
-app.get("/admin", (req,res)=>{
+app.get("/admin", async (req,res)=>{
 
-  
   //go to login page when user is guest
   if(!req.session.user){
     return res.redirect("/login");
   }
- 
-  // sort the article in descending order of date
-  if(!isArticlesSorted){
-    articlesArray.sort((a, b)=> b.date - a.date);
-    isArticlesSorted = true;
-  }
+  
+  await fetchArticle(req.session.user.id);
   res.render("admin.ejs", {articles:articlesArray});
 });
 
 
 app.get("/logout", (req, res)=>{
+
+    articlesArray = [];
+
     req.session.destroy((err) => {
     if (err) {
       return res.status(500).json({ message: 'Logout failed' });
@@ -363,7 +419,7 @@ async function addUser(name, password){
 }
 
 
-addUser("user1", "aabbccdd");
+//addUser("user1", "aabbccdd");
 
 app.post("/register", async (req, res)=>{
   const username = req.body.username;
@@ -412,26 +468,26 @@ app.get('/article/:articleID', (req, res) =>{
   const id = req.params.articleID;
    //check if articleID is digit number
   if(id.match(/\d+/)){ 
-    if(id <= articleSequenceNumber && id > 0){     
-      const articleElement = articlesArray.find((article)=> article.id == id);
-      res.render("article.ejs", {article:articleElement});
+     
+    const articleElement = articlesArray.find((article)=> article.id == id);
+    
+    if(articleElement){
+      return res.render("article.ejs", {article:articleElement});
     }else{
+      console.log("article with id ${id} does not exit.");
       res.send('404');
     }
   }else{
+    console.log("URL:./article/XXX where XXX should be a positive number");
     res.send('404');
   }
   
 });
 
 // Route to render the Guset home page
-app.get("/home", (req, res) =>{
+app.get("/home", async (req, res) =>{
   
-  // sort the article in descending order of date
-  if(!isArticlesSorted){
-    articlesArray.sort((a, b)=> b.date - a.date);
-    isArticlesSorted = true;
-  }
+  await fetchArticle();
   res.render("guest_home.ejs", {articles:articlesArray});
 });
 
