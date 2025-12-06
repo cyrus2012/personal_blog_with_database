@@ -3,6 +3,8 @@ import bodyParser from "body-parser";
 import fs from "fs";
 import session from "express-session";
 import bcrypt from "bcrypt";
+import pg from "pg";
+
 
 
 
@@ -34,6 +36,17 @@ const saltRounds = 10;  //add salt to bcrypt
 
 let articlesArray = new Array();
 let isArticlesSorted = false;
+
+
+const blogDatabase = new pg.Client({
+    user: 'postgres',
+    password: '123456',
+    host: 'localhost',
+    port: 5432,
+    database: 'blog',
+});
+
+blogDatabase.connect();
 
 
 function readSequenceFile(){
@@ -259,13 +272,16 @@ app.get("/logout", (req, res)=>{
 
 
 
-app.post("/login", (req, res)=>{
-    const username = req.body.username;
-    const password = req.body.password;
+app.post("/login", async (req, res)=>{
+  const username = req.body.username;
+  const password = req.body.password;
       
-    const loginUser = users.find((user) => user.username === username);
+    //const loginUser = users.find((user) => user.username === username);
+  try{
+    const result = await blogDatabase.query("SELECT * FROM users WHERE username=$1", [username]);
 
-    if(loginUser){
+    if(result.rows.length > 0){
+      const loginUser = result.rows[0];
 
       bcrypt.compare(password, loginUser.password, (err, valid) => {
         if (err) {
@@ -283,77 +299,102 @@ app.post("/login", (req, res)=>{
           
           } else {
             console.log("incorrect password.");
-            console.log("user enter password: " + password);
             return res.render("login.ejs", {message:"incorrect username or password."});    
           }
         }
       });
 
     }else{
-
       console.log("User not found");
       return res.render("login.ejs", {message:"incorrect username or password."});
     }
 
+  }catch(err){
+    console.error("fail to access blogDatabase", err);
+    return res.render("login.ejs", {message:"database has access problem."});
+  }
 });
 
 
 
-function isUsernameExisted(username){
-  const user = users.find((user) => user.username === username);
+async function isUsernameExisted(username){
+  //const user = users.find((user) => user.username === username);
 
-  if(user){
-    return true;
-  }
+  const users = await blogDatabase.query("SELECT * FROM users WHERE username=$1", [username]);
+
+    if(users.rows.length > 0){
+      return true;
+  } 
 
   return false;
 }
 
 
-function addUser(name, password){
-  if(isUsernameExisted(name)){
-    console.log("Username has been regitsered")
-    return ;
+async function addUser(name, password){
+  try{
+    if(await isUsernameExisted(name)){
+      console.log("Username has been regitsered")
+      return ;
+    }
+
+    bcrypt.hash(password, saltRounds, async (err, hash) => {
+        if (err) {
+          console.error("Error hashing password:", err);
+
+        } else {
+          try{
+            //users.push({id:1, username:name, password:hash});
+            const date = new Date().toISOString();
+            const result = await blogDatabase.query("INSERT INTO users(username, password, create_date) VALUES ($1, $2, $3) RETURNING *;", 
+              [name, hash, date]);
+
+            const user = result.rows[0];          
+            console.log("has regitsered. Now log in account");
+            console.log(`${user.username} password: ${user.password}`);
+          }catch(err){
+            console.error("cannot insert user account.", err);
+          }
+        }
+    });
+
+  }catch(err){
+      console.error(err);
   }
-
-  bcrypt.hash(password, saltRounds,  (err, hash) => {
-      if (err) {
-        console.error("Error hashing password:", err);
-
-      } else {
-
-        users.push({id:1, username:name, password:hash});
-        console.log("has regitsered. Now log in account");
-        console.log(`${name} password: ${hash}`);
-      }
-  });
-
 }
 
 
-//addUser("user1", "aabbccdd");
+addUser("user1", "aabbccdd");
 
-app.post("/register", (req, res)=>{
+app.post("/register", async (req, res)=>{
   const username = req.body.username;
   const password = req.body.password;
 
- if(isUsernameExisted(username)){
-    console.log("Username has been regitsered")
-    res.render("register.ejs", {message:`username ${username} has been used. Pleaes user another!`});
-    return;
- }
+  try{
+    if(await isUsernameExisted(username)){
+        console.log("Username has been regitsered(after exam user name)")
+        res.render("register.ejs", {message:`username ${username} has been used. Pleaes user another!`});
+        return;
+    }
 
-  bcrypt.hash(password, saltRounds,  (err, hash) => {
-      if (err) {
-        console.error("Error hashing password:", err);
-      } else {
-          users.push({id:1, username:username, password:hash});
-          console.log("has regitsered. Now log in account");
-          //console.log(users);
-          res.redirect("/login");
-      }
-  });
+      bcrypt.hash(password, saltRounds,  (err, hash) => {
+          if (err) {
+            console.error("Error hashing password:", err);
+          } else {
+              const date = new Date().toISOString();
+              const result = blogDatabase.query("INSERT INTO users(username, password, create_date) VALUES ($1, $2, $3) RETURNING *",
+                [username, hash, date]
+              );
 
+              //users.push({id:1, username:username, password:hash});
+
+              console.log("has regitsered. Now log in account");
+              //console.log(users);
+              res.redirect("/login");
+          }
+      });
+  }catch(err){
+    console.error(error);
+  }
 });
 
 app.get("/register", (req, res)=>{
