@@ -10,5 +10,5 @@ CREATE TABLE articles(
     title VARCHAR(255) NOT NULL,
     content text NOT NULL,
     date timestamptz,
-    user_id int NOT NULL REFERENCES users
+    owner_id int NOT NULL REFERENCES users
 );

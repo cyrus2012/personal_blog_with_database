@@ -7,7 +7,6 @@ import pg from "pg";
 
 
 
-
 const app = express();
 const PORT = 4000;
 
@@ -24,18 +23,7 @@ app.use(session({
 }));
 
 
-// The User account information is stored here for simplicity of demonstration. It should be stored in a database.
-const users = new Array();
-
-
-let articleSequenceNumber = 1;
-
-const ARTICLE_DIRECTORY = "./articles";
-const SEQUENCE_FILE = "sequenceNumber.json";
 const saltRounds = 10;  //add salt to bcrypt
-
-let articlesArray = new Array();
-let isArticlesSorted = false;
 
 
 const blogDatabase = new pg.Client({
@@ -46,45 +34,10 @@ const blogDatabase = new pg.Client({
     database: 'blog',
 });
 
-await blogDatabase.connect();
+blogDatabase.connect();
 
-fetchArticle();
+//fetchArticle();
 
-function readSequenceFile(){
-  const fileName = `./${SEQUENCE_FILE}`;
-  fs.readFile(fileName, 'utf8', (err, data)=>{
-    if(!err)
-      articleSequenceNumber = JSON.parse(data);
-    else
-      console.log("fail to read sequence file", err);
-  });
-}
-
-function writeSequenceFile(){
-  const fileName = `./${SEQUENCE_FILE}`;
-  fs.writeFile(fileName, JSON.stringify(articleSequenceNumber, null, 4), 'utf8', (err)=>{
-    if(err)
-      console.error("fail to write sequenceNumber file", err);
-  });
-}
-
-function incrementSequenceNumber(){
-  articleSequenceNumber += 1;
-  writeSequenceFile();
-}
-
-
-function writeArticleIntoFile(article) {
-
-  // store article in JSON format
-  const fileName = `${ARTICLE_DIRECTORY}/${articleSequenceNumber}.json`;
-  fs.writeFile(fileName, JSON.stringify(article, null, 4), 'utf8', (err)=>{
-    if(err)
-      console.error("fail to write article file", err);
-  });
-
-  incrementSequenceNumber();
-}
 
 async function insertArticle(article){
   try{
@@ -95,15 +48,6 @@ async function insertArticle(article){
   }catch(err){
     console.error("blog database has insert problem", err);
   }
-}
-
-//overwrite the content of the original file.
-function updateArticleFile(article){
-    const fileName = `${ARTICLE_DIRECTORY}/${article.id}.json`;
-    fs.writeFile(fileName, JSON.stringify(article, null, 4), 'utf8', (err)=>{
-      if(err)
-        console.error("fail to write article file", err);
-    });
 }
 
 
@@ -119,73 +63,56 @@ async function updateArticle(article){
 }
 
 
-function readArticleFiles(){
-  fs.readdir(ARTICLE_DIRECTORY, {encoding:'utf8'}, (err, files)=>{
-      if(err){
-        console.error("fail to read articile directory", err);
-      }else{
-         files.forEach((file)=>{
-          //console.log(`${ARTICLE_DIRECTORY}/${file}`);
-          fs.readFile(`${ARTICLE_DIRECTORY}/${file}`, 'utf8', (err, data)=>{
-            //to convert the string of date into Date object during parsing process
-            articlesArray.push(JSON.parse(data, parseDate));  
-            //console.log(data);
-          });
-        });
-      }
-  });
-
-}
-
-async function fetchArticle(owner_id){
+async function fetchArticlesByOwner(owner_id){
 
   let result;
 
   try{
     if(owner_id){
-      result = await blogDatabase.query("SELECT * FROM articles WHERE owner_id=$1", [owner_id]);
+      result = await blogDatabase.query("SELECT * FROM articles WHERE owner_id=$1 ORDER BY date DESC", [owner_id]);
     }else{
-      result = await blogDatabase.query("SELECT * FROM articles");
+      result = await blogDatabase.query("SELECT * FROM articles ORDER BY date DESC");
     }
-
-    articlesArray = result.rows;
+ 
+    return result.rows;
 
   }catch(err){
     console.log("fail to access blog database", err);
   }
+
 }
 
-function deleteArticleFile(articleId){
+async function fetchArticleById(article_id){
 
-  fs.rm(`${ARTICLE_DIRECTORY}/${articleId}.json`, (err)=>{
-    if(err){
-      console.log("fail to delete file with id " + articleId);
-    }
-      
-  });
-}
+  let result;
 
-async function deleteArticle(acticleId){
   try{
-    const result = blogDatabase.query("DELETE FROM articles WHERE id=$1", [acticleId]);
+    if(article_id){
+      result = await blogDatabase.query("SELECT * FROM articles WHERE id=$1", [article_id]);
+    }else{
+      result = await blogDatabase.query("SELECT * FROM articles");
+    }
+
+    if(result.rows.length > 0)
+      return result.rows[0];
+    
+    return null;
+
+  }catch(err){
+    console.log("fail to access blog database", err);
+  }
+
+}
+
+
+async function deleteArticleById(acticleId){
+  try{
+    blogDatabase.query("DELETE FROM articles WHERE id=$1", [acticleId]);
   }catch(err){
     console.error("Problem occurs when delete a row in table articles", err);
   }
 }
-
-/**
- * It is reviver function for parse JSON to return a Date object.
- * @param {*} key the key of JSON object
- * @param {*} value the value produced by parsing the JSON key
- * @returns if the key is "date", it turn Date object. Otherwise, it return original value
- */
-function parseDate(key, value) {
-  if (key === "date") {
-    return new Date(value);
-  }
-  return value;
-}
-    
+   
 
 /**
  * return Date object
@@ -205,23 +132,30 @@ function convertToStringFormatForDateInputTag(date){
     return dateString;
 }
 
-//readSequenceFile();
-//readArticleFiles();
 
 
 // Route to render the edit page
 // This page can only been accessed after login
-app.get('/edit/:articleID', (req, res) =>{
+app.get('/edit/:articleID', async (req, res) =>{
 
-  if(!req.session.user){
+  const user = req.session.user;
+  if(!user){
     return res.redirect("/login");
   }
 
   const id = req.params.articleID;
   //check if articleID is digit number
   if(id.match(/\d+/)){ 
-      const articleElement = articlesArray.find((article)=> article.id == id);
+      
+      const articleElement = await fetchArticleById(id);
+
       if(articleElement){
+
+        if(user.id != articleElement.owner_id){
+          console.error(`User ${user.id} cannot edit article owned by other.`);
+          return res.send('404');    
+        }
+
         const dateString = convertToStringFormatForDateInputTag(articleElement.date);
         return res.render("edit_article.ejs", {article:articleElement, date:dateString});
       }else{
@@ -243,31 +177,24 @@ app.post("/modified", async (req, res)=>{
       return res.redirect("/login");
   }
 
-  const user_id = req.session.user.id;
-  //console.log("post /admin with action " + req.body.action);
-  
+  const user_id = req.session.user.id;  
+  const action = req.body.action;
 
   //delete an article
-  if(req.body.action === "Delete"){
-    await deleteArticle(req.body.deleteArticleId);
-    /*
-    const index = articlesArray.findIndex((article) => article.id == req.body.deleteArticleId);
-    deleteArticleFile(req.body.deleteArticleId);
-    articlesArray.splice(index, 1);
+  if(action === "Delete"){
+    await deleteArticleById(req.body.deleteArticleId);
     console.log(`deleted article ${req.body.deleteArticleId}!`);
-    */
+
   //publish a new article
-  }else if(req.body.action === "Publish"){
-    console.log("publish new article");
+  }else if(action === "Publish"){
+    
     const dateObj = createDateFromDateInput(req.body.date);
-    const newArticle = {owner_id: user_id,title:req.body.title, date:dateObj, content:req.body.content};
+    const newArticle = {owner_id: user_id, title:req.body.title, date:dateObj, content:req.body.content};
     await insertArticle(newArticle);
-    //writeArticleIntoFile(newArticle);
-    //articlesArray.splice(0, 0, newArticle);
-    //isArticlesSorted = false;
+    console.log("publish new article");
 
   //update the article
-  }else if(req.body.action === "Update"){
+  }else if(action === "Update"){
 
     const dateObj = createDateFromDateInput(req.body.date);
     const newArticle = {
@@ -279,6 +206,7 @@ app.post("/modified", async (req, res)=>{
     };
 
     await updateArticle(newArticle);
+    console.log(`updated article ${newArticle.id}`);
   }
     
   res.redirect("/admin");
@@ -309,19 +237,17 @@ app.get("/admin", async (req,res)=>{
     return res.redirect("/login");
   }
   
-  await fetchArticle(req.session.user.id);
+  const articlesArray = await fetchArticlesByOwner(req.session.user.id);
   res.render("admin.ejs", {articles:articlesArray});
 });
 
 
 app.get("/logout", (req, res)=>{
-
-    articlesArray = [];
-
+    
     req.session.destroy((err) => {
-    if (err) {
-      return res.status(500).json({ message: 'Logout failed' });
-    }
+      if (err) {
+        return res.status(500).json({ message: 'Logout failed' });
+      }
       res.redirect("/home");
     });
 });
@@ -332,7 +258,6 @@ app.post("/login", async (req, res)=>{
   const username = req.body.username;
   const password = req.body.password;
       
-    //const loginUser = users.find((user) => user.username === username);
   try{
     const result = await blogDatabase.query("SELECT * FROM users WHERE username=$1", [username]);
 
@@ -374,8 +299,7 @@ app.post("/login", async (req, res)=>{
 
 
 async function isUsernameExisted(username){
-  //const user = users.find((user) => user.username === username);
-
+  
   const users = await blogDatabase.query("SELECT * FROM users WHERE username=$1", [username]);
 
     if(users.rows.length > 0){
@@ -426,11 +350,11 @@ app.post("/register", async (req, res)=>{
   const password = req.body.password;
 
   try{
-    if(await isUsernameExisted(username)){
-        console.log("Username has been regitsered(after exam user name)")
-        res.render("register.ejs", {message:`username ${username} has been used. Pleaes user another!`});
-        return;
-    }
+      if(await isUsernameExisted(username)){
+          console.log("Username has been regitsered(after exam user name)")
+          res.render("register.ejs", {message:`username ${username} has been used. Pleaes user another!`});
+          return;
+      }
 
       bcrypt.hash(password, saltRounds,  (err, hash) => {
           if (err) {
@@ -441,10 +365,7 @@ app.post("/register", async (req, res)=>{
                 [username, hash, date]
               );
 
-              //users.push({id:1, username:username, password:hash});
-
               console.log("has regitsered. Now log in account");
-              //console.log(users);
               res.redirect("/login");
           }
       });
@@ -453,6 +374,7 @@ app.post("/register", async (req, res)=>{
   }
 });
 
+//Route to render register page
 app.get("/register", (req, res)=>{
   res.render("register.ejs");
 });
@@ -464,19 +386,27 @@ app.get("/login", (req, res)=>{
 
 
 // Route to render the aritcle detail page
-app.get('/article/:articleID', (req, res) =>{
+app.get('/article/:articleID', async (req, res) =>{
   const id = req.params.articleID;
    //check if articleID is digit number
   if(id.match(/\d+/)){ 
-     
-    const articleElement = articlesArray.find((article)=> article.id == id);
-    
-    if(articleElement){
-      return res.render("article.ejs", {article:articleElement});
-    }else{
-      console.log("article with id ${id} does not exit.");
-      res.send('404');
+         
+    try{
+      const articleElement = await fetchArticleById(id);
+
+      if(articleElement){
+          return res.render("article.ejs", {article:articleElement});
+      }else{
+        console.log("article with id ${id} does not exit.");
+        return res.send('404');
+      }
+
+    }catch(err){
+      console.error("fail to access database table articles.", err);
+      return res.send('404');
     }
+
+
   }else{
     console.log("URL:./article/XXX where XXX should be a positive number");
     res.send('404');
@@ -487,14 +417,13 @@ app.get('/article/:articleID', (req, res) =>{
 // Route to render the Guset home page
 app.get("/home", async (req, res) =>{
   
-  await fetchArticle();
+  const articlesArray = await fetchArticlesByOwner();
   res.render("guest_home.ejs", {articles:articlesArray});
 });
 
 app.get("/", (req, res) =>{
   res.redirect("/home");
 });
-
 
 app.listen(PORT, () => {
   console.log(`Listening to port ${PORT}`);
