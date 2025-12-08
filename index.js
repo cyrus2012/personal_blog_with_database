@@ -88,7 +88,10 @@ async function fetchArticleById(article_id){
 
   try{
     if(article_id){
-      result = await blogDatabase.query("SELECT * FROM articles WHERE id=$1", [article_id]);
+      result = await blogDatabase.query(
+        "SELECT articles.id, title, content, date, owner_id, users.username FROM articles " +
+        "INNER JOIN users ON users.id=articles.owner_id WHERE articles.id=$1",
+        [article_id]);
     }else{
       result = await blogDatabase.query("SELECT * FROM articles");
     }
@@ -232,13 +235,14 @@ app.get("/new", (req, res) =>{
 // This page can only been accessed after login
 app.get("/admin", async (req,res)=>{
 
+  const user = req.session.user;
   //go to login page when user is guest
-  if(!req.session.user){
+  if(!user){
     return res.redirect("/login");
   }
   
-  const articlesArray = await fetchArticlesByOwner(req.session.user.id);
-  res.render("admin.ejs", {articles:articlesArray});
+  const articlesArray = await fetchArticlesByOwner(user.id);
+  res.render("admin.ejs", {articles:articlesArray, username:user.username});
 });
 
 
@@ -264,6 +268,7 @@ app.post("/login", async (req, res)=>{
     if(result.rows.length > 0){
       const loginUser = result.rows[0];
 
+      //use bcrypt.compare() method compare the password typed in by user and that encrypted one stored in database
       bcrypt.compare(password, loginUser.password, (err, valid) => {
         if (err) {
           console.error("Error comparing passwords:", err);
@@ -395,7 +400,7 @@ app.get('/article/:articleID', async (req, res) =>{
       const articleElement = await fetchArticleById(id);
 
       if(articleElement){
-          return res.render("article.ejs", {article:articleElement});
+          return res.render("article.ejs", {article:articleElement, author:articleElement.username});
       }else{
         console.log("article with id ${id} does not exit.");
         return res.send('404');

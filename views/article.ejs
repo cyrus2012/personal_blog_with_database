@@ -10,9 +10,16 @@
 
 <body>
   <div class="container">
+    <article>
       <h1> <%= locals.article.title %> </h1>
       <p class="text-secondary"> <%= article.date.toLocaleDateString(undefined, {month: "long", day: "numeric", year: "numeric",}) %> </p>
       <p> <%= locals.article.content %> </p>
+
+      <footer>
+        <p>Author: <%= locals.author %></p>
+      </footer>
+
+    </article>
   </div>
 
 </body>

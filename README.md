@@ -1,34 +1,43 @@
 # personal_blog
 This repository is an improvement of roadmap.sh backend project (https://roadmap.sh/projects/personal-blog).
-It adds database PostgreSQL to store the articles, username and the associated password(encrypted).
+It adds database PostgreSQL to store the articles, username and the associated password.
 
 This frontend and backend is implemented by html(plus ejs for templating) and node.js respectively.
 framework bootstrap is used.
+
+For run the project. Please install `node.js` and `PostgreSQL`.
+
 
 please follow the instructions to run:
 1. download and unzip the code
 2. open terminal and go the project folder
 3. type `npm install` in terminal to install the neccessary node package
-4. follow the command inside queries.sql to set up the database and tables
-5. type `node index.js` to run the backend. [do not run with `nodemon`. `nodemon` will re-start after writing or deleting file (create a new article, save modifed an article and delete an article). It needs to log in again when `nodemon` will re-start.]
+4. follow the command inside queries.sql to set up the tables in databease.
+5. type `node index.js` or `nodemon index.js` to run the backend. 
 6. Port `${PORT}` is opened. Use web browser to open `http://localhost:${PORT}/home` to view the articles as a guest.
 7. To create, edit or delete articles, go to `http://localhost:${PORT}/login` to login as admin (username and password is stored in index.js for simplicity).
 
 
+This project use `express-session` to store user login status. Any access to `/admin`, `/edit/x` and `/new` page as guest will be redirected to `/login` page.
+User password has beed encryped with module `bcypt`. 
 
-home page (guest)
+
+
+home page (guest) - It lists all articles published by all users. The newest article (published date) will be listed at the top of the list.
 ![display home page](./screenshot/home_page.png)
 
 article content
 ![display article content](./screenshot/article_page.png)
 
-admin page
+admin page - It only list the articles that publiched by the login user.
 ![display the admin page](./screenshot/admin_page.png)
 
 edit article
 ![display the editing page](./screenshot/edit_page.png)
 
 
-This project use `express-session` to store user login status. Any access to `/admin`, `/edit/x` and `/new` page as guest will be redirected to `/login` page.
+Users registered in `users` table of the database. User password is encrypted before storing into the tables.
+![User data in 'user' table of database](./screenshot/user_table.png)
 
-The newest article (published date) will be listed at the top in `/home` and `/admin` page. The order of article will be sorted before display when a new article has been published or an existing article has been editted each time.
+Articles stored in `articles` table of the database
+![articles publiched by different users](./screenshot/articles_table.png)

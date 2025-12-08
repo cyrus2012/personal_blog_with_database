@@ -13,7 +13,10 @@
     <table class="table align-middle">
     <tbody class="table-group-divider">
       <tr> 
-        <th scope="row" > <h1>Personal Blog</h1> </th>
+        <th scope="row" > 
+          <h1>Personal Blog</h1> 
+          <p class="text-primary"><%= locals.username %></p>
+        </th>
         <td> 
             <form action="/new" method="GET">
               <input type="submit" class="btn btn-primary" name="addArticle" value="+Add">
