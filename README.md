@@ -24,7 +24,7 @@ User password has beed encryped with module `bcypt`.
 
 
 home page (guest) - It lists all articles published by all users. The newest article (published date) will be listed at the top of the list.
-![display home page](./screenshot/homepage.png
+![display home page](./screenshot/homepage.png)
 
 article content
 ![display article content](./screenshot/article_page.png)
