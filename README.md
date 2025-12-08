@@ -20,7 +20,7 @@ please follow the instructions to run:
 
 This project use `express-session` to store user login status. Any access to `/admin`, `/edit/x` and `/new` page as guest will be redirected to `/login` page.
 User password has beed encryped with module `bcypt`. 
-
+Store the confidential setting(e.g session secret, database login password...) in a hidden file (.env). Normally, `.env` should not be viewed publicly for security. It is included in respository now for demonstration.
 
 
 home page (guest) - It lists all articles published by all users. The newest article (published date) will be listed at the top of the list.

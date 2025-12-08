@@ -4,7 +4,7 @@ import fs from "fs";
 import session from "express-session";
 import bcrypt from "bcrypt";
 import pg from "pg";
-
+import env from "dotenv";
 
 
 const app = express();
@@ -12,11 +12,12 @@ const PORT = 4000;
 
 app.use(bodyParser.urlencoded({ extended: true }));
 //app.use(express.static("public"));
+env.config();
 
 
 // Configure sessions
 app.use(session({
-  secret: 'secret-key',
+  secret: process.env.SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
   cookie: { secure: false, maxAge: 24 * 60 * 60 * 1000 } // 24 hours
@@ -27,11 +28,11 @@ const saltRounds = 10;  //add salt to bcrypt
 
 
 const blogDatabase = new pg.Client({
-    user: 'postgres',
-    password: '123456',
-    host: 'localhost',
-    port: 5432,
-    database: 'blog',
+    user: process.env.PG_USER,
+    password: process.env.PG_PASSWORD,
+    host: process.env.PG_HOST,
+    port: process.env.PG_PORT,
+    database: process.env.PG_DATABASE,
 });
 
 blogDatabase.connect();
