@@ -149,7 +149,7 @@ app.get('/edit/:articleID', async (req, res) =>{
 
   const id = req.params.articleID;
   //check if articleID is digit number
-  if(id.match(/\d+/)){ 
+  if(id.match(/^\d+$/)){ 
       
       const articleElement = await fetchArticleById(id);
 
@@ -164,11 +164,11 @@ app.get('/edit/:articleID', async (req, res) =>{
         return res.render("edit_article.ejs", {article:articleElement, date:dateString});
       }else{
         console.error(`Article with id S{id} does not exit.`);
-        res.send('404');    
+        res.status(404).send("Article with id S{id} does not exit.");    
       }
   }else{
     console.log("URL:./article/XXX where XXX should be a positive number");
-    res.send('404');
+    res.status(400).send("URL:./article/XXX where XXX should be a positive number");
   }
   
 });
@@ -395,7 +395,7 @@ app.get("/login", (req, res)=>{
 app.get('/article/:articleID', async (req, res) =>{
   const id = req.params.articleID;
    //check if articleID is digit number
-  if(id.match(/\d+/)){ 
+  if(id.match(/^\d+$/)){ 
          
     try{
       const articleElement = await fetchArticleById(id);
@@ -404,18 +404,18 @@ app.get('/article/:articleID', async (req, res) =>{
           return res.render("article.ejs", {article:articleElement, author:articleElement.username});
       }else{
         console.log("article with id ${id} does not exit.");
-        return res.send('404');
+        return res.status(400).send("article with id ${id} does not exit.");
       }
 
     }catch(err){
       console.error("fail to access database table articles.", err);
-      return res.send('404');
+      return res.status(500).send("fail to access database table articles.");
     }
 
 
   }else{
     console.log("URL:./article/XXX where XXX should be a positive number");
-    res.send('404');
+    res.status(400).send("URL:./article/XXX where XXX should be a positive number");
   }
   
 });

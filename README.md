@@ -12,10 +12,11 @@ please follow the instructions to run:
 1. download and unzip the code
 2. open terminal and go the project folder
 3. type `npm install` in terminal to install the neccessary node package
-4. follow the command inside queries.sql to set up the tables in databease.
-5. type `node index.js` or `nodemon index.js` to run the backend. 
-6. Port `${PORT}` is opened. Use web browser to open `http://localhost:${PORT}/home` to view the articles as a guest.
-7. To create, edit or delete articles, go to `http://localhost:${PORT}/login` to login as admin (username and password is stored in index.js for simplicity).
+4. follow the command inside queries.sql to set up the tables in databease. 
+5. modify the database related variables stored in file `.env`
+6. type `node index.js` or `nodemon index.js` to run the backend. 
+7. Port `${PORT}` is opened. Use web browser to open `http://localhost:${PORT}/home` to view the articles as a guest.
+8. To create, edit or delete articles, go to `http://localhost:${PORT}/login` to login as admin (username and password is stored in index.js for simplicity).
 
 
 This project use `express-session` to store user login status. Any access to `/admin`, `/edit/x` and `/new` page as guest will be redirected to `/login` page.
